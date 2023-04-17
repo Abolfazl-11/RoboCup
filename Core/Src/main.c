@@ -40,12 +40,9 @@ MPU6050_t mpu6050;
 const double RAD_TO_DEG = 180/PI;
 const double DEG_TO_RAD = PI/180;
 
-double xAng, yAng, zAng;
-
 double sx, sy, sz;
 
 double kp = 1.9, ki = 1.5, pv = 0, kd = 1.6;
-double kgp = 1.2, kgi = 1.4;
 
 double dis1, dis3, dis2, dis4;
 
@@ -53,14 +50,6 @@ float gx, gy, gz;
 float AccX, AccY, AccZ;
 float RateCalibrationRoll, RateCalibrationPitch, RateCalibrationYaw;
 int RateCalibrationNumber;
-float KalmanAngleRoll = 0, KalmanUncertaintyAngleRoll = 2*2;
-float KalmanAnglePitch = 0, KalmanUncertaintyAnglePitch = 2*2;
-float KalmanAngleYaw = 0, KalmanUncertaintyAngleYaw = 2*2;
-
-float Kalman1DOutput[] = {0, 0};
-
-float getBallCurveQ = .25;
-
 // version request to Pixy
 uint8_t versionRequest[] =
 {
@@ -84,12 +73,13 @@ int bally;
 int ballheight;
 int ballwidth;
 
-int isBallInView = 0, isInBounds = 1, isPixyChecked = 0, isMPUCollibrated = 0, isBallInGetBall = 0;
+int isBallInView = 0, isInBounds = 1, isPixyChecked = 0, isMPUCollibrated = 0;
 
 #define MAXSPEED 40
 #define ZONEDIS_TH 50
 #define PIXY_Y_ZERO 114
 #define PIXY_X_ZERO 157
+#define MAXPIDSPEED 20
 
 uint32_t timcounter = 0;
 
@@ -242,11 +232,11 @@ void Rotate_to_zero() {
 	double e = 0;
 	uint32_t u = 0;
 	e = 0 - Gy.z;
-	int en = e > 1 ? 0 : 1;
+	int en = e > 0 ? 0 : 1;
 	e = abs(e);
 	u = abs((int)(kp * e + ki * (e * .1)));
-	if (u > 20) {
-		u = 20;
+	if (u > MAXPIDSPEED) {
+		u = MAXPIDSPEED;
 	}
 
 	if (en == 1) {
@@ -336,39 +326,6 @@ void AllMotorsZero() {
 	PWM(&Motor_4, 0, 1);
 }
 
-void checkBounds () {
-	dis1 = Read_sr(&Sr1);
-	dis2 = Read_sr(&Sr2);
-	dis3 = Read_sr(&Sr3);
-//	dis4 = Read_sr(&Sr4);
-
-	if (!(dis1 >= 13 && dis2 >= 13 && dis3 >= 13)) {
-		isInBounds = 0;
-		AllMotorsZero();
-	}
-	else {
-		isInBounds = 1;
-	}
-	if (dis1 < 15) {
-		GotoPoint(1, -90, 30);
-		while (dis1 < 15) {
-			dis1 = Read_sr(&Sr1);
-		}
-	}
-	if (dis2 < 15) {
-		GotoPoint(1, 90, 30);
-		while (dis2 < 15) {
-			dis2 = Read_sr(&Sr2);
-		}
-	}
-	if (dis3 < 15) {
-		GotoPoint(1, 0, 30);
-		while (dis3 < 15) {
-			dis3 = Read_sr(&Sr3);
-		}
-	}
-}
-
 void getBallPosiotion() {
 	HAL_SPI_Transmit(&hspi1, &getBlocks, 6, 1000);
 	HAL_Delay(1);
@@ -448,7 +405,7 @@ void GetBall(int speed) {
 	switch (zone) {
 	case CLOSE:
 		if (teta > 0) {
-			GotoPoint(r, teta + 35, speed);
+			GotoPoi9nt(r, teta + 35, speed);
 		}
 		else if(teta < 0) {
 			GotoPoint(r, teta - 35, speed);
@@ -592,7 +549,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+   HAL_Init();
 
   /* USER CODE BEGIN Init */
 
